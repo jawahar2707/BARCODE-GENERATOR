@@ -69,7 +69,25 @@ function writeBlocks(blocks) {
 }
 
 function layoutFromForm() {
+  let base = {};
+  try {
+    base = JSON.parse(document.getElementById('layoutJson').value || '{}');
+  } catch {
+    base = {};
+  }
+  const textFromForm = readBlocks();
+  const otherBlocks = (Array.isArray(base.blocks) ? base.blocks : []).filter(
+    (b) => b && b.type && b.type !== 'text'
+  );
+  const mergedBlocks = [...otherBlocks, ...textFromForm];
+
   return {
+    border: {
+      enabled: document.getElementById('borderEn').checked,
+      width_pt: parseFloat(document.getElementById('borderWpt').value) || 1,
+      color: (document.getElementById('borderColor').value || '#000000').trim(),
+      inset_mm: parseFloat(document.getElementById('borderInset').value) || 0
+    },
     barcode: {
       x_mm: parseFloat(document.getElementById('bcX').value) || 0,
       y_mm: parseFloat(document.getElementById('bcY').value) || 0,
@@ -78,7 +96,7 @@ function layoutFromForm() {
       type: document.getElementById('bcType').value,
       sourceField: document.getElementById('srcField').value
     },
-    blocks: readBlocks(),
+    blocks: mergedBlocks,
     sheet: {
       cols: parseInt(document.getElementById('cols').value, 10) || 1,
       rows: parseInt(document.getElementById('rows').value, 10) || 1,
@@ -105,7 +123,13 @@ function applyFormFromLayout(layout) {
   document.getElementById('rows').value = sh.rows ?? 1;
   document.getElementById('hGap').value = sh.hGap_mm ?? 0;
   document.getElementById('vGap').value = sh.vGap_mm ?? 0;
-  writeBlocks(layout.blocks || []);
+  const br = layout.border || {};
+  document.getElementById('borderEn').checked = !!br.enabled;
+  document.getElementById('borderWpt').value = br.width_pt ?? 1;
+  document.getElementById('borderColor').value = br.color || '#000000';
+  document.getElementById('borderInset').value = br.inset_mm ?? 0;
+  const textBlocks = (layout.blocks || []).filter((b) => !b.type || b.type === 'text');
+  writeBlocks(textBlocks);
 }
 
 async function loadTemplateList() {
@@ -132,6 +156,7 @@ function fillTemplate(t) {
     applyFormFromLayout(t.layout);
   } else {
     applyFormFromLayout({
+      border: { enabled: true, width_pt: 1, color: '#000000', inset_mm: 0.3 },
       barcode: { x_mm: 7, y_mm: 2, width_mm: 40, height_mm: 9, type: 'code128', sourceField: 'barcode_value' },
       blocks: [
         { type: 'text', field: 'sku', x_mm: 27, y_mm: 12, fontSizePt: 6, align: 'center' },
@@ -190,8 +215,24 @@ document.getElementById('btnApplyJson').onclick = () => {
   }
 };
 
-['bcX', 'bcY', 'bcW', 'bcH', 'cols', 'rows', 'hGap', 'vGap', 'srcField', 'bcType'].forEach((id) => {
-  document.getElementById(id).addEventListener('change', syncJsonTextarea);
+[
+  'bcX',
+  'bcY',
+  'bcW',
+  'bcH',
+  'cols',
+  'rows',
+  'hGap',
+  'vGap',
+  'srcField',
+  'bcType',
+  'borderEn',
+  'borderWpt',
+  'borderInset',
+  'borderColor'
+].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', syncJsonTextarea);
 });
 
 document.getElementById('btnSave').onclick = async () => {

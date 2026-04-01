@@ -35,6 +35,7 @@ function getTemplate(id) {
 
 function defaultLayout() {
   return {
+    border: { enabled: true, width_pt: 1, color: '#000000', inset_mm: 0.3 },
     barcode: {
       x_mm: 5,
       y_mm: 3,

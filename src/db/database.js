@@ -22,6 +22,23 @@ const schemaPath = path.join(__dirname, 'schema.sql');
 const schema = fs.readFileSync(schemaPath, 'utf8');
 db.exec(schema);
 
+function tableHasColumn(table, col) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col);
+}
+
+if (!tableHasColumn('label_batches', 'page_template_id')) {
+  db.exec('ALTER TABLE label_batches ADD COLUMN page_template_id INTEGER REFERENCES page_templates(id)');
+}
+if (!tableHasColumn('label_batches', 'page_metadata_json')) {
+  db.exec('ALTER TABLE label_batches ADD COLUMN page_metadata_json TEXT');
+}
+
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_batches_page ON label_batches(page_template_id)');
+} catch {
+  /* ignore */
+}
+
 /**
  * Run callback inside a transaction (replaces better-sqlite3 db.transaction).
  */

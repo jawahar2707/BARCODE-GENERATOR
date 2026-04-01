@@ -11,7 +11,8 @@
       <h1>Label generator</h1>
       <nav>
         <a href="/">Dashboard</a>
-        <a href="/designer.html">Templates</a>
+        <a href="/designer.html">Label templates</a>
+        <a href="/page-templates.html">Page layouts</a>
         <a href="/generate.html" class="active">Generate</a>
         <a href="/import.html">Import</a>
         <a href="/history.html">History</a>
@@ -36,6 +37,16 @@
           </div>
         </div>
         <p class="muted" id="batchInfo">No active batch. Create one to add items.</p>
+        <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem">
+          <label for="pageTpl">Page layout (optional — buyer sheet with header)</label>
+          <select id="pageTpl">
+            <option value="">— Plain PDF (no background) —</option>
+          </select>
+          <div id="pageFields" style="margin-top: 0.75rem"></div>
+          <button type="button" class="secondary" id="btnSavePageMeta" style="margin-top: 0.5rem" disabled>
+            Save page / buyer fields
+          </button>
+        </div>
       </div>
       <div class="grid grid-2">
         <div class="card">

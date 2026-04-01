@@ -4,6 +4,7 @@ const path = require('path');
 const multer = require('multer');
 
 const templateService = require('../services/templateService');
+const pageTemplateService = require('../services/pageTemplateService');
 const batchService = require('../services/batchService');
 const settingsService = require('../services/settingsService');
 const { parseCsvBuffer } = require('../services/csvImportService');
@@ -38,6 +39,16 @@ const uploadBg = multer({
     }
   }),
   limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+const uploadPageBg = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      cb(null, `page-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+    }
+  }),
+  limits: { fileSize: 30 * 1024 * 1024 }
 });
 
 // ——— Templates ———
@@ -102,6 +113,70 @@ router.post('/templates/:id/background', uploadBg.single('file'), (req, res) => 
   res.json({ ok: true, background_image_path: rel, template: saved });
 });
 
+// ——— Page layouts (buyer sheet: background + header fields + label grid) ———
+router.get('/page-templates/preset/tafeeta', (_req, res) => {
+  res.json({ preset: pageTemplateService.PRESET_TAFEETA });
+});
+
+router.get('/page-templates', (_req, res) => {
+  try {
+    res.json(pageTemplateService.listPageTemplates());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/page-templates/:id', (req, res) => {
+  const t = pageTemplateService.getPageTemplate(Number(req.params.id));
+  if (!t) return res.status(404).json({ error: 'Not found' });
+  res.json(t);
+});
+
+router.post('/page-templates', express.json(), (req, res) => {
+  try {
+    res.json(pageTemplateService.savePageTemplate(req.body));
+  } catch (e) {
+    const code = e.code === 'VALIDATION' ? 400 : 500;
+    res.status(code).json({ error: e.message });
+  }
+});
+
+router.put('/page-templates/:id', express.json(), (req, res) => {
+  try {
+    res.json(pageTemplateService.savePageTemplate({ ...req.body, id: Number(req.params.id) }));
+  } catch (e) {
+    const code = e.code === 'VALIDATION' ? 400 : e.code === 'IN_USE' ? 409 : 500;
+    res.status(code).json({ error: e.message });
+  }
+});
+
+router.delete('/page-templates/:id', (req, res) => {
+  try {
+    res.json(pageTemplateService.deletePageTemplate(Number(req.params.id)));
+  } catch (e) {
+    const code = e.code === 'IN_USE' ? 409 : 500;
+    res.status(code).json({ error: e.message });
+  }
+});
+
+router.post('/page-templates/:id/background', uploadPageBg.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'file required (PNG or JPEG export of full page)' });
+  const rel = path.relative(path.join(__dirname, '..', '..'), req.file.path).replace(/\\/g, '/');
+  const t = pageTemplateService.getPageTemplate(Number(req.params.id));
+  if (!t) return res.status(404).json({ error: 'Page template not found' });
+  const saved = pageTemplateService.savePageTemplate({
+    id: t.id,
+    name: t.name,
+    page_width_mm: t.page_width_mm,
+    page_height_mm: t.page_height_mm,
+    background_image_path: rel,
+    header_regions: t.header_regions,
+    label_grid: t.label_grid,
+    dynamic_fields: t.dynamic_fields
+  });
+  res.json({ ok: true, background_image_path: rel, page_template: saved });
+});
+
 // ——— Batches ———
 router.get('/batches', (_req, res) => {
   try {
@@ -119,8 +194,21 @@ router.get('/batches/:id', (req, res) => {
 
 router.post('/batches', express.json(), (req, res) => {
   try {
-    const { name, template_id } = req.body;
-    const b = batchService.createBatch(name || 'Untitled batch', template_id);
+    const { name, template_id, page_template_id, page_metadata } = req.body;
+    const b = batchService.createBatch(name || 'Untitled batch', template_id, {
+      page_template_id,
+      page_metadata
+    });
+    res.json(b);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.patch('/batches/:id', express.json(), (req, res) => {
+  try {
+    const b = batchService.updateBatch(Number(req.params.id), req.body);
+    if (!b) return res.status(404).json({ error: 'Not found' });
     res.json(b);
   } catch (e) {
     res.status(400).json({ error: e.message });

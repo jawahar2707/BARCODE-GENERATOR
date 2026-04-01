@@ -40,3 +40,17 @@ CREATE TABLE IF NOT EXISTS settings (
 
 CREATE INDEX IF NOT EXISTS idx_label_items_batch ON label_items(batch_id);
 CREATE INDEX IF NOT EXISTS idx_batches_template ON label_batches(template_id);
+
+-- Full-page buyer / layout sheet (background art + header text slots + label grid)
+CREATE TABLE IF NOT EXISTS page_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  page_width_mm REAL NOT NULL DEFAULT 210,
+  page_height_mm REAL NOT NULL DEFAULT 297,
+  background_image_path TEXT,
+  header_regions_json TEXT NOT NULL DEFAULT '[]',
+  label_grid_json TEXT NOT NULL DEFAULT '{}',
+  dynamic_fields_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

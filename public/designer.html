@@ -11,7 +11,8 @@
       <h1>Template designer</h1>
       <nav>
         <a href="/">Dashboard</a>
-        <a href="/designer.html" class="active">Templates</a>
+        <a href="/designer.html" class="active">Label templates</a>
+        <a href="/page-templates.html">Page layouts</a>
         <a href="/generate.html">Generate</a>
         <a href="/import.html">Import</a>
         <a href="/history.html">History</a>
@@ -72,6 +73,20 @@
             <div><label>H gap mm</label><input type="number" id="hGap" step="0.1" value="3" /></div>
             <div><label>V gap mm</label><input type="number" id="vGap" step="0.1" value="3" /></div>
           </div>
+          <h2 style="margin-top: 1rem">Label border</h2>
+          <p class="muted" style="margin: 0 0 0.5rem">
+            Drawn on every label (plain PDF and buyer sheets). Advanced: <code>line</code> / <code>image</code> blocks and
+            <code>rotation_deg</code> on text — edit in JSON.
+          </p>
+          <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem">
+            <input type="checkbox" id="borderEn" checked />
+            Draw border around label
+          </label>
+          <div class="row">
+            <div><label>Width (pt)</label><input type="number" id="borderWpt" step="0.1" min="0.25" value="1" /></div>
+            <div><label>Inset (mm)</label><input type="number" id="borderInset" step="0.1" value="0.3" /></div>
+            <div><label>Color (#hex)</label><input type="text" id="borderColor" value="#000000" /></div>
+          </div>
           <h2 style="margin-top: 1rem">Text blocks</h2>
           <div id="blocks"></div>
           <button type="button" class="secondary" id="addBlock">+ Add text block</button>
@@ -87,7 +102,7 @@
           <p class="muted">Uses the same PDF engine as export (mm-accurate).</p>
           <iframe class="preview-frame" id="preview" title="Preview"></iframe>
           <h2 style="margin-top: 1rem">Layout JSON (advanced)</h2>
-          <textarea id="layoutJson" spellcheck="false"></textarea>
+          <textarea id="layoutJson" spellcheck="false" placeholder='{"border":{...},"blocks":[{"type":"line",...}]}'></textarea>
           <button type="button" class="secondary" id="btnApplyJson">Apply JSON → form</button>
         </div>
       </div>

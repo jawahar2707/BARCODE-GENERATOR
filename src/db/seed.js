@@ -6,6 +6,12 @@ const path = require('path');
 const db = require('./database');
 
 const SAMPLE_LAYOUT = {
+  border: {
+    enabled: true,
+    width_pt: 1,
+    color: '#000000',
+    inset_mm: 0.3
+  },
   barcode: {
     x_mm: 7,
     y_mm: 2,

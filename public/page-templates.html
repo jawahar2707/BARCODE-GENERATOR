@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page layouts — Local Label Studio</title>
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Page layouts (buyer sheets)</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/designer.html">Label templates</a>
+        <a href="/page-templates.html" class="active">Page layouts</a>
+        <a href="/generate.html">Generate</a>
+        <a href="/import.html">Import</a>
+        <a href="/history.html">History</a>
+        <a href="/settings.html">Settings</a>
+      </nav>
+    </header>
+    <main>
+      <p class="muted" style="margin-top: 0">
+        Export your Illustrator / PDF layout as <strong>PNG or JPEG</strong> at the real page size (e.g. A4). Upload it here.
+        Define <strong>where text goes</strong> (buyer, date, PO, style…) and the <strong>label grid</strong> (columns × rows, cell size in mm).
+        <strong>Dynamic fields</strong> control which inputs appear when generating a batch — reuse the same page for different buyers.
+      </p>
+      <div class="grid grid-2">
+        <div class="card">
+          <h2>Page template</h2>
+          <label for="ptSelect">Load or new</label>
+          <select id="ptSelect">
+            <option value="">— New page layout —</option>
+          </select>
+          <div style="margin-top: 0.75rem">
+            <label for="ptName">Name</label>
+            <input type="text" id="ptName" placeholder="e.g. CLIX TAFEETA A4" />
+          </div>
+          <div class="row" style="margin-top: 0.5rem">
+            <div>
+              <label for="pw">Page width (mm)</label>
+              <input type="number" id="pw" step="0.1" value="210" />
+            </div>
+            <div>
+              <label for="ph">Page height (mm)</label>
+              <input type="number" id="ph" step="0.1" value="297" />
+            </div>
+          </div>
+          <p class="muted" style="margin-top: 0.75rem">
+            Match these to the pixel dimensions of your exported image (Illustrator artboard).
+          </p>
+          <div style="margin-top: 0.75rem">
+            <label>Background image (full page)</label>
+            <input type="file" id="ptFile" accept="image/png,image/jpeg,.png,.jpg,.jpeg" />
+            <button type="button" class="secondary" id="btnUploadBg" style="margin-top: 0.35rem">Upload to saved layout</button>
+          </div>
+          <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap">
+            <button type="button" class="secondary" id="btnPreset">Load TAFEETA-style preset</button>
+            <button type="button" id="btnSavePt">Save page layout</button>
+            <button type="button" class="secondary" id="btnDelPt">Delete</button>
+          </div>
+          <p id="ptmsg" class="err" style="margin-top: 0.5rem"></p>
+        </div>
+        <div class="card">
+          <h2>JSON (positions in mm from top-left)</h2>
+          <p class="muted">
+            <strong>header_regions</strong>: text drawn on top of the image. <strong>label_grid</strong>: where each label cell sits.
+            <strong>dynamic_fields</strong>: which keys show up on the Generate screen; <code>section: "page"</code> = header only.
+          </p>
+          <label>header_regions_json</label>
+          <textarea id="hdrJson" spellcheck="false" style="min-height: 140px"></textarea>
+          <label style="margin-top: 0.5rem">label_grid_json</label>
+          <textarea id="gridJson" spellcheck="false" style="min-height: 120px"></textarea>
+          <label style="margin-top: 0.5rem">dynamic_fields_json</label>
+          <textarea id="dynJson" spellcheck="false" style="min-height: 120px"></textarea>
+        </div>
+      </div>
+    </main>
+    <script src="/js/api.js"></script>
+    <script src="/js/page-templates.js"></script>
+  </body>
+</html>
