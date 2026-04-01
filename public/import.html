@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Import CSV — Local Label Studio</title>
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Import CSV</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/designer.html">Templates</a>
+        <a href="/generate.html">Generate</a>
+        <a href="/import.html" class="active">Import</a>
+        <a href="/history.html">History</a>
+        <a href="/settings.html">Settings</a>
+      </nav>
+    </header>
+    <main>
+      <div class="card">
+        <h2>Upload</h2>
+        <p class="muted">
+          Headers recognized: <code>barcode_value</code> or <code>barcode</code>, <code>sku</code>, <code>item_name</code>,
+          <code>size</code>, <code>color</code>, <code>mrp</code>, <code>qty</code>. Barcode column is required per row.
+        </p>
+        <input type="file" id="file" accept=".csv,text/csv" />
+        <p id="msg" class="err"></p>
+      </div>
+      <div class="card" id="resultCard" style="display: none">
+        <h2>Preview</h2>
+        <p id="summary" class="muted"></p>
+        <table>
+          <thead>
+            <tr>
+              <th>barcode_value</th>
+              <th>sku</th>
+              <th>size</th>
+              <th>qty</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <p style="margin-top: 1rem">
+          <a class="btn" id="toGen" href="/generate.html">Send to label generator</a>
+        </p>
+      </div>
+      <p class="muted">Sample file: <code>imports/sample-labels.csv</code> (after install, copy from repo).</p>
+    </main>
+    <script src="/js/api.js"></script>
+    <script>
+      let lastRows = [];
+      document.getElementById('file').onchange = async (ev) => {
+        const msg = document.getElementById('msg');
+        msg.textContent = '';
+        const f = ev.target.files[0];
+        if (!f) return;
+        const fd = new FormData();
+        fd.append('file', f);
+        try {
+          const r = await fetch(apiUrl('/import/csv'), { method: 'POST', body: fd });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || r.statusText);
+          lastRows = data.rows;
+          document.getElementById('resultCard').style.display = 'block';
+          document.getElementById('summary').textContent =
+            `${data.rows.length} rows ready.` +
+            (data.errors && data.errors.length
+              ? ` ${data.errors.length} lines skipped (see server log / fix file).`
+              : '');
+          const tb = document.getElementById('tbody');
+          tb.innerHTML = '';
+          data.rows.slice(0, 50).forEach((row) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${esc(row.barcode_value)}</td><td>${esc(row.sku)}</td><td>${esc(row.size)}</td><td>${row.qty}</td>`;
+            tb.appendChild(tr);
+          });
+          if (data.rows.length > 50) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="4" class="muted">… and ${data.rows.length - 50} more</td>`;
+            tb.appendChild(tr);
+          }
+        } catch (e) {
+          msg.textContent = e.message;
+        }
+        ev.target.value = '';
+      };
+      function esc(s) {
+        const d = document.createElement('span');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      document.getElementById('toGen').onclick = (e) => {
+        if (!lastRows.length) {
+          e.preventDefault();
+          return;
+        }
+        sessionStorage.setItem('importedItems', JSON.stringify(lastRows));
+      };
+    </script>
+  </body>
+</html>

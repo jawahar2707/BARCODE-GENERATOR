@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Label history — Local Label Studio</title>
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Label history</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/designer.html">Templates</a>
+        <a href="/generate.html">Generate</a>
+        <a href="/import.html">Import</a>
+        <a href="/history.html" class="active">History</a>
+        <a href="/settings.html">Settings</a>
+      </nav>
+    </header>
+    <main>
+      <div class="card">
+        <h2>Recent batches</h2>
+        <p class="muted">Stored locally in SQLite. Open a batch to edit items or re-export PDF.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Template</th>
+              <th>Items</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <p id="err" class="err"></p>
+      </div>
+    </main>
+    <script src="/js/api.js"></script>
+    <script>
+      apiJson('/batches')
+        .then((rows) => {
+          const tb = document.getElementById('tbody');
+          rows.forEach((b) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${b.id}</td>
+              <td>${esc(b.name)}</td>
+              <td>${esc(b.template_name)}</td>
+              <td>${b.item_count}</td>
+              <td>${esc(b.created_at)}</td>
+              <td>
+                <a href="/generate.html?batch=${b.id}">Open</a>
+                ·
+                <a href="${apiUrl('/batches/' + b.id + '/pdf')}">PDF</a>
+              </td>
+            `;
+            tb.appendChild(tr);
+          });
+        })
+        .catch((e) => {
+          document.getElementById('err').textContent = e.message;
+        });
+      function esc(s) {
+        const d = document.createElement('span');
+        d.textContent = s ?? '';
+        return d.innerHTML;
+      }
+    </script>
+  </body>
+</html>

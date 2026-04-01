@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Template designer — Local Label Studio</title>
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Template designer</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/designer.html" class="active">Templates</a>
+        <a href="/generate.html">Generate</a>
+        <a href="/import.html">Import</a>
+        <a href="/history.html">History</a>
+        <a href="/settings.html">Settings</a>
+      </nav>
+    </header>
+    <main>
+      <div class="grid grid-2">
+        <div class="card">
+          <h2>Template</h2>
+          <label for="tplSelect">Load or new</label>
+          <select id="tplSelect">
+            <option value="">— New template —</option>
+          </select>
+          <div style="margin-top: 0.75rem">
+            <label for="tplName">Name</label>
+            <input type="text" id="tplName" placeholder="e.g. Shelf label 54×20" />
+          </div>
+          <div class="row" style="margin-top: 0.5rem">
+            <div>
+              <label for="wmm">Width (mm)</label>
+              <input type="number" id="wmm" step="0.1" value="54" />
+            </div>
+            <div>
+              <label for="hmm">Height (mm)</label>
+              <input type="number" id="hmm" step="0.1" value="20" />
+            </div>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <label for="bcType">Default barcode type</label>
+            <select id="bcType">
+              <option value="code128">Code 128</option>
+              <option value="code39">Code 39</option>
+              <option value="ean13">EAN-13</option>
+              <option value="upc">UPC-A</option>
+              <option value="qrcode">QR Code</option>
+            </select>
+          </div>
+          <h2 style="margin-top: 1rem">Barcode block (mm)</h2>
+          <div class="row">
+            <div><label>X</label><input type="number" id="bcX" step="0.1" value="7" /></div>
+            <div><label>Y</label><input type="number" id="bcY" step="0.1" value="2" /></div>
+            <div><label>Width</label><input type="number" id="bcW" step="0.1" value="40" /></div>
+            <div><label>Height</label><input type="number" id="bcH" step="0.1" value="9" /></div>
+          </div>
+          <div style="margin-top: 0.5rem">
+            <label for="srcField">Barcode value from field</label>
+            <select id="srcField">
+              <option value="barcode_value">barcode_value</option>
+              <option value="sku">sku</option>
+              <option value="item_name">item_name</option>
+            </select>
+          </div>
+          <h2 style="margin-top: 1rem">Sheet (print grid)</h2>
+          <div class="row">
+            <div><label>Cols</label><input type="number" id="cols" min="1" value="2" /></div>
+            <div><label>Rows</label><input type="number" id="rows" min="1" value="5" /></div>
+            <div><label>H gap mm</label><input type="number" id="hGap" step="0.1" value="3" /></div>
+            <div><label>V gap mm</label><input type="number" id="vGap" step="0.1" value="3" /></div>
+          </div>
+          <h2 style="margin-top: 1rem">Text blocks</h2>
+          <div id="blocks"></div>
+          <button type="button" class="secondary" id="addBlock">+ Add text block</button>
+          <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap">
+            <button type="button" id="btnSave">Save template</button>
+            <button type="button" class="secondary" id="btnPreview">Preview PDF</button>
+            <button type="button" class="secondary" id="btnDelete">Delete</button>
+          </div>
+          <p id="msg" class="err" style="margin-top: 0.5rem"></p>
+        </div>
+        <div class="card">
+          <h2>Live preview</h2>
+          <p class="muted">Uses the same PDF engine as export (mm-accurate).</p>
+          <iframe class="preview-frame" id="preview" title="Preview"></iframe>
+          <h2 style="margin-top: 1rem">Layout JSON (advanced)</h2>
+          <textarea id="layoutJson" spellcheck="false"></textarea>
+          <button type="button" class="secondary" id="btnApplyJson">Apply JSON → form</button>
+        </div>
+      </div>
+    </main>
+    <script src="/js/api.js"></script>
+    <script src="/js/designer.js"></script>
+  </body>
+</html>

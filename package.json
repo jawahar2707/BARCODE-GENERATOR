@@ -1,0 +1,20 @@
+{
+  "name": "local-label-studio",
+  "version": "1.0.0",
+  "description": "Local-only barcode label generator with SQLite, templates, and PDF export",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "seed": "node --disable-warning=ExperimentalWarning src/db/seed.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "bwip-js": "^4.5.1",
+    "csv-parse": "^5.5.6",
+    "express": "^4.21.1",
+    "multer": "^2.1.1",
+    "pdf-lib": "^1.17.1"
+  }
+}

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Label generator — Local Label Studio</title>
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Label generator</h1>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/designer.html">Templates</a>
+        <a href="/generate.html" class="active">Generate</a>
+        <a href="/import.html">Import</a>
+        <a href="/history.html">History</a>
+        <a href="/settings.html">Settings</a>
+      </nav>
+    </header>
+    <main>
+      <div class="card">
+        <h2>Batch</h2>
+        <div class="row">
+          <div style="flex: 2">
+            <label for="tpl">Template</label>
+            <select id="tpl"></select>
+          </div>
+          <div style="flex: 2">
+            <label for="batchName">Batch name</label>
+            <input type="text" id="batchName" placeholder="e.g. March restock" />
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button type="button" id="btnCreateBatch">Create / load batch</button>
+          </div>
+        </div>
+        <p class="muted" id="batchInfo">No active batch. Create one to add items.</p>
+      </div>
+      <div class="grid grid-2">
+        <div class="card">
+          <h2>Items</h2>
+          <p class="muted">Set <strong>qty</strong> for duplicate labels per row. Barcode field must match template type (Code128 = alphanumeric).</p>
+          <div style="margin-bottom: 0.75rem">
+            <label for="quickLines">Quick add (one barcode/SKU per line)</label>
+            <textarea id="quickLines" placeholder="PNC533611S&#10;PNC533611M&#10;PNC533611L"></textarea>
+            <button type="button" class="secondary" id="btnQuick">Append lines as items</button>
+          </div>
+          <div style="margin-bottom: 0.75rem">
+            <label>Import CSV</label>
+            <input type="file" id="csvFile" accept=".csv,text/csv" />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>barcode_value</th>
+                <th>sku</th>
+                <th>size</th>
+                <th>qty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="itemRows"></tbody>
+          </table>
+          <button type="button" class="secondary" id="btnAddRow" style="margin-top: 0.5rem">+ Row</button>
+          <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap">
+            <button type="button" id="btnSaveItems">Save items to batch</button>
+            <button type="button" class="secondary" id="btnClearItems">Clear items</button>
+          </div>
+          <p id="gmsg" class="err"></p>
+        </div>
+        <div class="card">
+          <h2>Preview &amp; export</h2>
+          <p class="muted">Preview uses saved items. Use browser print from the PDF viewer for printing.</p>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem">
+            <button type="button" id="btnPreview" disabled>Refresh preview</button>
+            <a class="btn secondary" id="btnDownload" href="#" style="display: none">Download PDF</a>
+          </div>
+          <iframe class="preview-frame" id="pdfPreview" title="PDF preview"></iframe>
+        </div>
+      </div>
+    </main>
+    <script src="/js/api.js"></script>
+    <script src="/js/generate.js"></script>
+  </body>
+</html>
