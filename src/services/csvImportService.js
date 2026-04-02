@@ -41,6 +41,7 @@ function mapRow(record, barcodeField) {
   const color = lower.color ?? '';
   const mrp = lower.mrp ?? lower.price ?? '';
   const qty = lower.qty ?? lower.quantity ?? '1';
+  const vendor_code = lower.vendor_code ?? lower.vendor ?? lower.vendorcode ?? '';
 
   return {
     sku: String(sku).trim(),
@@ -49,7 +50,8 @@ function mapRow(record, barcodeField) {
     size: String(size).trim(),
     color: String(color).trim(),
     mrp: String(mrp).trim(),
-    qty: parseInt(qty, 10) || 1
+    qty: parseInt(qty, 10) || 1,
+    vendor_code: String(vendor_code).trim()
   };
 }
 

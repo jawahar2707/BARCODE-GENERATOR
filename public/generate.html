@@ -6,7 +6,7 @@
     <title>Label generator — Local Label Studio</title>
     <link rel="stylesheet" href="/css/app.css" />
   </head>
-  <body>
+  <body class="page-generate">
     <header class="app-header">
       <h1>Label generator</h1>
       <nav>
@@ -20,74 +20,141 @@
       </nav>
     </header>
     <main>
-      <div class="card">
-        <h2>Batch</h2>
-        <div class="row">
-          <div style="flex: 2">
-            <label for="tpl">Template</label>
-            <select id="tpl"></select>
+      <div class="generate-split">
+        <div class="generate-col generate-col--form">
+          <div class="card">
+            <h2>Batch</h2>
+            <div class="row">
+              <div style="flex: 2">
+                <label for="tpl">Template</label>
+                <select id="tpl"></select>
+              </div>
+              <div style="flex: 2">
+                <label for="batchName">Batch name</label>
+                <input type="text" id="batchName" placeholder="e.g. March restock" />
+              </div>
+              <div>
+                <label>&nbsp;</label>
+                <button type="button" id="btnCreateBatch">Create / load batch</button>
+              </div>
+            </div>
+            <p class="muted" id="batchInfo">No active batch. Create one to add items.</p>
+            <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem">
+              <label for="pageTpl">Page layout (optional — buyer sheet with header)</label>
+              <select id="pageTpl">
+                <option value="">— Plain PDF (no background) —</option>
+              </select>
+              <div id="pageFields" style="margin-top: 0.75rem"></div>
+              <button type="button" class="secondary" id="btnSavePageMeta" style="margin-top: 0.5rem" disabled>
+                Save page / buyer fields
+              </button>
+            </div>
           </div>
-          <div style="flex: 2">
-            <label for="batchName">Batch name</label>
-            <input type="text" id="batchName" placeholder="e.g. March restock" />
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button type="button" id="btnCreateBatch">Create / load batch</button>
+          <div class="card card-items">
+            <h2>Items</h2>
+            <p class="muted">
+            Set <strong>qty</strong> for duplicate labels per row. Barcode field must match template type (Code128 =
+            alphanumeric). Put your <strong>vendor code once</strong> in the field below — it applies to
+            <strong>every row</strong> when the row’s vendor cell is empty (matrix, quick add, CSV, or manual table).
+            Optional per-row overrides in the table. Template needs a <code>vendor_code</code> text block to print it.
+            </p>
+            <div style="margin-bottom: 0.75rem">
+              <label for="defaultVendorCode"><strong>Vendor code</strong> (applies to all rows if cell is blank)</label>
+              <input type="text" id="defaultVendorCode" placeholder="e.g. 32026910" style="width: 10rem" />
+            </div>
+            <div style="margin-bottom: 0.75rem">
+              <label for="quickLines">Quick add (one barcode/SKU per line)</label>
+              <textarea id="quickLines" placeholder="PNC 533611 S&#10;PNC 533611 XXXL&#10;PNC 533612 M"></textarea>
+              <button type="button" class="secondary" id="btnQuick">Append lines as items</button>
+            </div>
+            <div
+              style="margin-bottom: 0.75rem; border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px"
+            >
+              <h3 style="margin: 0 0 0.35rem; font-size: 1rem">SKU × sizes (matrix)</h3>
+              <p class="muted" style="margin: 0 0 0.5rem; font-size: 0.9rem">
+                Same numeric run as <strong>Start SKU</strong> → <strong>End SKU</strong>, combined with each size (e.g.
+                <code>PNC 533611 S</code> … <code>PNC 533616 XXL</code>). Barcode and SKU use the full string; the size column
+                gets the size only.
+              </p>
+              <div class="row" style="flex-wrap: wrap; gap: 0.5rem; align-items: flex-end">
+                <div>
+                  <label for="skuRangeStart">Start SKU</label>
+                  <input type="text" id="skuRangeStart" placeholder="PNC 533611" style="width: 10rem" />
+                </div>
+                <div>
+                  <label for="skuRangeEnd">End SKU</label>
+                  <input type="text" id="skuRangeEnd" placeholder="PNC 533616" style="width: 10rem" />
+                </div>
+                <div>
+                  <label for="sizeFrom">Size from</label>
+                  <select id="sizeFrom"></select>
+                </div>
+                <div>
+                  <label for="sizeTo">Size to</label>
+                  <select id="sizeTo"></select>
+                </div>
+              </div>
+              <div style="margin-top: 0.5rem">
+                <label for="customSizes">Or custom sizes only (comma-separated — overrides from/to)</label>
+                <input
+                  type="text"
+                  id="customSizes"
+                  placeholder="S, M, L, XL, XXL"
+                  style="width: 100%; max-width: none"
+                />
+              </div>
+              <button type="button" class="secondary" id="btnSkuMatrix" style="margin-top: 0.5rem">
+                Append all combinations
+              </button>
+            </div>
+            <div style="margin-bottom: 0.75rem">
+              <label>Import CSV</label>
+              <input type="file" id="csvFile" accept=".csv,text/csv" />
+            </div>
+            <p class="muted" id="tableFlowHint" style="margin: 0 0 0.5rem; font-size: 0.88rem">
+              <strong>Step 1:</strong> Click <strong>Append lines as items</strong> or <strong>Append all combinations</strong> —
+              matrix / quick-add values do <strong>not</strong> enter the table until you click. Each row must have a
+              <strong>barcode_value</strong> (vendor alone is not enough).
+            </p>
+            <div style="overflow-x: auto">
+              <table class="items-editor">
+                <thead>
+                  <tr>
+                    <th>barcode_value</th>
+                    <th>sku</th>
+                    <th>size</th>
+                    <th>vendor_code</th>
+                    <th>qty</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="itemRows"></tbody>
+              </table>
+            </div>
+            <button type="button" class="secondary" id="btnAddRow" style="margin-top: 0.5rem">+ Row</button>
+            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap">
+              <button type="button" id="btnSaveItems">Save items to batch</button>
+              <button type="button" class="secondary" id="btnClearItems">Clear items</button>
+            </div>
+            <p id="gmsg" class="err"></p>
           </div>
         </div>
-        <p class="muted" id="batchInfo">No active batch. Create one to add items.</p>
-        <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem">
-          <label for="pageTpl">Page layout (optional — buyer sheet with header)</label>
-          <select id="pageTpl">
-            <option value="">— Plain PDF (no background) —</option>
-          </select>
-          <div id="pageFields" style="margin-top: 0.75rem"></div>
-          <button type="button" class="secondary" id="btnSavePageMeta" style="margin-top: 0.5rem" disabled>
-            Save page / buyer fields
-          </button>
-        </div>
-      </div>
-      <div class="grid grid-2">
-        <div class="card">
-          <h2>Items</h2>
-          <p class="muted">Set <strong>qty</strong> for duplicate labels per row. Barcode field must match template type (Code128 = alphanumeric).</p>
-          <div style="margin-bottom: 0.75rem">
-            <label for="quickLines">Quick add (one barcode/SKU per line)</label>
-            <textarea id="quickLines" placeholder="PNC533611S&#10;PNC533611M&#10;PNC533611L"></textarea>
-            <button type="button" class="secondary" id="btnQuick">Append lines as items</button>
+        <div class="generate-col generate-col--preview">
+          <div class="card card-preview-side">
+            <h2>Preview &amp; export</h2>
+            <p class="muted" style="margin-top: 0">
+              Left: batch &amp; items. This half updates the PDF when you <strong>Refresh preview</strong> (table syncs
+              first). Print from the viewer if needed.
+            </p>
+            <div class="preview-toolbar">
+              <button type="button" id="btnPreview" disabled>Refresh preview</button>
+              <a class="btn secondary" id="btnDownload" href="#" style="display: none">Download PDF</a>
+            </div>
+            <div class="preview-wrap preview-wrap--tall">
+              <div id="previewPlaceholder" class="preview-placeholder" aria-live="polite"></div>
+              <iframe class="preview-frame" id="pdfPreview" title="PDF preview"></iframe>
+            </div>
           </div>
-          <div style="margin-bottom: 0.75rem">
-            <label>Import CSV</label>
-            <input type="file" id="csvFile" accept=".csv,text/csv" />
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>barcode_value</th>
-                <th>sku</th>
-                <th>size</th>
-                <th>qty</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="itemRows"></tbody>
-          </table>
-          <button type="button" class="secondary" id="btnAddRow" style="margin-top: 0.5rem">+ Row</button>
-          <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap">
-            <button type="button" id="btnSaveItems">Save items to batch</button>
-            <button type="button" class="secondary" id="btnClearItems">Clear items</button>
-          </div>
-          <p id="gmsg" class="err"></p>
-        </div>
-        <div class="card">
-          <h2>Preview &amp; export</h2>
-          <p class="muted">Preview uses saved items. Use browser print from the PDF viewer for printing.</p>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem">
-            <button type="button" id="btnPreview" disabled>Refresh preview</button>
-            <a class="btn secondary" id="btnDownload" href="#" style="display: none">Download PDF</a>
-          </div>
-          <iframe class="preview-frame" id="pdfPreview" title="PDF preview"></iframe>
         </div>
       </div>
     </main>

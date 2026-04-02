@@ -7,10 +7,37 @@ const settingsService = require('./settingsService');
 
 const ROOT = path.join(__dirname, '..', '..');
 
+/** Re-embed once per PDF: same barcode value or asset file path across many labels. */
+function newEmbedCache() {
+  return { barcode: new Map(), asset: new Map() };
+}
+
+/**
+ * bwip-js raster scale — higher = sharper but slower. Labels scale bitmap down in PDF, so 2 is enough for print.
+ * Designer preview uses BARCODE_SCALE_PREVIEW for a crisper on-screen look.
+ */
+const BARCODE_SCALE_EXPORT = 2;
+const BARCODE_SCALE_PREVIEW = 3;
+
 function absProjectPath(rel) {
   if (!rel) return null;
-  const p = path.join(ROOT, String(rel).replace(/\//g, path.sep));
-  return fs.existsSync(p) ? p : null;
+  let s = String(rel).trim().replace(/\\/g, '/');
+  if (s.startsWith('files/')) s = 'uploads/' + s.slice('files/'.length);
+  const withSep = s.replace(/\//g, path.sep);
+  let p;
+  if (path.isAbsolute(withSep)) {
+    p = path.normalize(withSep);
+  } else {
+    const seg = s.replace(/^\//, '').split('/').filter(Boolean);
+    p = path.join(ROOT, ...seg);
+  }
+  try {
+    if (!fs.existsSync(p)) return null;
+    if (!fs.statSync(p).isFile()) return null;
+    return p;
+  } catch {
+    return null;
+  }
 }
 
 function hexToRgbColor(hex) {
@@ -45,7 +72,9 @@ function getFieldValue(item, field) {
     item_name: item.item_name,
     size: item.size,
     color: item.color,
-    mrp: item.mrp
+    mrp: item.mrp,
+    product_line: item.item_name || extras.product_line || '',
+    vendor_code: item.vendor_code || extras.vendor_code || ''
   };
   if (map[f] != null && map[f] !== '') return String(map[f]);
   if (extras[f] != null) return String(extras[f]);
@@ -166,6 +195,8 @@ async function drawLabel(
   options = {}
 ) {
   const skipCellBackground = options.skipCellBackground === true;
+  const embedCache = options.embedCache;
+  const barcodeScale = Math.max(1, Math.min(6, Number(options.barcodeScale) || BARCODE_SCALE_EXPORT));
   const labelWpt = mmToPt(labelWmm);
   const labelHpt = mmToPt(labelHmm);
 
@@ -207,35 +238,6 @@ async function drawLabel(
     }
   }
 
-  for (const block of blocks) {
-    if (block.type !== 'image') continue;
-    const rel = block.path || block.src;
-    if (!rel) continue;
-    const abs = absProjectPath(rel);
-    if (!abs) continue;
-    const ix = Number(block.x_mm) || 0;
-    const iy = Number(block.y_mm) || 0;
-    const iw = Number(block.width_mm) || 8;
-    const ih = Number(block.height_mm) || 8;
-    try {
-      const ext = path.extname(abs).toLowerCase();
-      const buf = fs.readFileSync(abs);
-      const embedded =
-        ext === '.png' ? await pdfDoc.embedPng(buf) : ext === '.jpg' || ext === '.jpeg' ? await pdfDoc.embedJpg(buf) : null;
-      if (!embedded) continue;
-      const imgY = originY + mmToPt(labelHmm - iy - ih);
-      const imgX = originX + mmToPt(ix);
-      page.drawImage(embedded, {
-        x: imgX,
-        y: imgY,
-        width: mmToPt(iw),
-        height: mmToPt(ih)
-      });
-    } catch {
-      /* skip missing image */
-    }
-  }
-
   const bc = layout.barcode || {};
   const sourceField = bc.sourceField || 'barcode_value';
   const rawForBarcode = getFieldValue(item, sourceField) || item.barcode_value;
@@ -247,8 +249,15 @@ async function drawLabel(
   const bhMm = Number(bc.height_mm) || 10;
 
   try {
-    const png = await renderPngBuffer(bcType, rawForBarcode, { scale: 3 });
-    const img = await pdfDoc.embedPng(png);
+    let img;
+    const bcKey = `${bcType}\0${rawForBarcode}\0${barcodeScale}`;
+    if (embedCache && embedCache.barcode.has(bcKey)) {
+      img = embedCache.barcode.get(bcKey);
+    } else {
+      const png = await renderPngBuffer(bcType, rawForBarcode, { scale: barcodeScale });
+      img = await pdfDoc.embedPng(png);
+      if (embedCache) embedCache.barcode.set(bcKey, img);
+    }
     const targetW = mmToPt(bwMm);
     const targetH = mmToPt(bhMm);
     const imgY = originY + mmToPt(labelHmm - by - bhMm);
@@ -304,6 +313,44 @@ async function drawLabel(
       textOpts.rotate = degrees(rotDeg);
     }
     page.drawText(text, textOpts);
+  }
+
+  /* User images (e.g. scissors) after barcode + text so they are not hidden underneath. */
+  for (const block of blocks) {
+    if (block.type !== 'image') continue;
+    const rel = block.path || block.src;
+    if (!rel) continue;
+    const abs = absProjectPath(rel);
+    if (!abs) continue;
+    const ix = Number(block.x_mm) || 0;
+    const iy = Number(block.y_mm) || 0;
+    const iw = Number(block.width_mm) || 8;
+    const ih = Number(block.height_mm) || 8;
+    try {
+      const ext = path.extname(abs).toLowerCase();
+      let embedded = embedCache && embedCache.asset.get(abs);
+      if (!embedded) {
+        const buf = fs.readFileSync(abs);
+        embedded =
+          ext === '.png'
+            ? await pdfDoc.embedPng(buf)
+            : ext === '.jpg' || ext === '.jpeg'
+              ? await pdfDoc.embedJpg(buf)
+              : null;
+        if (embedded && embedCache) embedCache.asset.set(abs, embedded);
+      }
+      if (!embedded) continue;
+      const imgY = originY + mmToPt(labelHmm - iy - ih);
+      const imgX = originX + mmToPt(ix);
+      page.drawImage(embedded, {
+        x: imgX,
+        y: imgY,
+        width: mmToPt(iw),
+        height: mmToPt(ih)
+      });
+    } catch {
+      /* skip missing image */
+    }
   }
 
   drawLayoutBorder(page, layout, originX, originY, labelWmm, labelHmm);
@@ -370,8 +417,20 @@ async function buildComposedBatchPdf(items, labelTplRow, pageTplRow, pageMetadat
 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const embedCache = newEmbedCache();
+  const settingsScale = Number(_settings && _settings.barcode_render_scale);
+  const barcodeScale =
+    Number.isFinite(settingsScale) && settingsScale >= 1 && settingsScale <= 6 ? settingsScale : BARCODE_SCALE_EXPORT;
 
   const bgPath = absProjectPath(pageTplRow.background_image_path);
+  let bgEmbedded = null;
+  if (bgPath) {
+    try {
+      bgEmbedded = await embedPageBackground(pdfDoc, bgPath);
+    } catch {
+      bgEmbedded = null;
+    }
+  }
 
   let idx = 0;
   if (flat.length === 0) {
@@ -384,10 +443,9 @@ async function buildComposedBatchPdf(items, labelTplRow, pageTplRow, pageMetadat
   while (idx < flat.length) {
     const page = pdfDoc.addPage([pageWpt, pageHpt]);
 
-    if (bgPath) {
+    if (bgEmbedded) {
       try {
-        const img = await embedPageBackground(pdfDoc, bgPath);
-        page.drawImage(img, { x: 0, y: 0, width: pageWpt, height: pageHpt });
+        page.drawImage(bgEmbedded, { x: 0, y: 0, width: pageWpt, height: pageHpt });
       } catch {
         page.drawRectangle({
           x: 0,
@@ -403,6 +461,20 @@ async function buildComposedBatchPdf(items, labelTplRow, pageTplRow, pageMetadat
           font
         });
       }
+    } else if (bgPath) {
+      page.drawRectangle({
+        x: 0,
+        y: 0,
+        width: pageWpt,
+        height: pageHpt,
+        color: rgb(0.96, 0.96, 0.96)
+      });
+      page.drawText('(Background image missing or invalid)', {
+        x: 40,
+        y: pageHpt - 40,
+        size: 10,
+        font
+      });
     } else {
       page.drawRectangle({
         x: 0,
@@ -441,7 +513,7 @@ async function buildComposedBatchPdf(items, labelTplRow, pageTplRow, pageMetadat
         labelTplRow.barcode_type,
         flat[idx],
         font,
-        { skipCellBackground: true }
+        { skipCellBackground: true, embedCache, barcodeScale }
       );
       idx++;
     }
@@ -450,7 +522,7 @@ async function buildComposedBatchPdf(items, labelTplRow, pageTplRow, pageMetadat
   return pdfDoc.save();
 }
 
-async function buildPdfForBatch(templateRow, items, settings) {
+async function buildPdfForBatch(templateRow, items, settings, batchOpts = {}) {
   const layout = templateRow.layout || JSON.parse(templateRow.layout_json || '{}');
   const sheet = layout.sheet || { cols: 1, rows: 1, hGap_mm: 2, vGap_mm: 2 };
   const cols = Math.max(1, Math.min(20, parseInt(sheet.cols, 10) || 1));
@@ -470,6 +542,14 @@ async function buildPdfForBatch(templateRow, items, settings) {
 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const embedCache = batchOpts.embedCache || newEmbedCache();
+  const settingsScale = Number(settings.barcode_render_scale);
+  const barcodeScale =
+    batchOpts.barcodeScale != null
+      ? batchOpts.barcodeScale
+      : Number.isFinite(settingsScale) && settingsScale >= 1 && settingsScale <= 6
+        ? settingsScale
+        : BARCODE_SCALE_EXPORT;
 
   const pageWpt = mmToPt(paperWmm);
   const pageHpt = mmToPt(paperHmm);
@@ -499,7 +579,7 @@ async function buildPdfForBatch(templateRow, items, settings) {
         templateRow.barcode_type,
         flat[idx],
         font,
-        {}
+        { embedCache, barcodeScale }
       );
       idx++;
     }
@@ -551,16 +631,17 @@ async function buildPreviewPdf(templateRow, item) {
   };
   const tr = { ...templateRow, layout: patchedLayout };
   const sample = {
-    sku: 'PNC533611M',
-    barcode_value: 'PNC533611M',
-    item_name: 'Sample item',
-    size: 'M',
+    sku: 'PNC 533611 XXXL',
+    barcode_value: 'PNC 533611 XXXL',
+    item_name: 'PNC 533611 XXXL',
+    size: 'XXXL',
     color: '',
     mrp: '',
     qty: 1,
+    extra_data_json: JSON.stringify({ vendor_code: '32026910' }),
     ...item
   };
-  const bytes = await buildPdfForBatch(tr, [sample], settings);
+  const bytes = await buildPdfForBatch(tr, [sample], settings, { barcodeScale: BARCODE_SCALE_PREVIEW });
   return Buffer.from(bytes);
 }
 

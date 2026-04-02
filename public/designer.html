@@ -75,8 +75,8 @@
           </div>
           <h2 style="margin-top: 1rem">Label border</h2>
           <p class="muted" style="margin: 0 0 0.5rem">
-            Drawn on every label (plain PDF and buyer sheets). Advanced: <code>line</code> / <code>image</code> blocks and
-            <code>rotation_deg</code> on text — edit in JSON.
+            Drawn on every label (plain PDF and buyer sheets). Dashed guide lines: add <code>line</code> blocks with
+            <code>dash</code> in JSON. Text rotation: <strong>Rot °</strong> on each row or <code>rotation_deg</code> in JSON.
           </p>
           <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem">
             <input type="checkbox" id="borderEn" checked />
@@ -90,6 +90,14 @@
           <h2 style="margin-top: 1rem">Text blocks</h2>
           <div id="blocks"></div>
           <button type="button" class="secondary" id="addBlock">+ Add text block</button>
+          <h2 style="margin-top: 1rem">Image blocks</h2>
+          <p class="muted" style="margin: 0 0 0.5rem">
+            Your own PNG or JPEG only (e.g. cut mark / scissors). Upload fills a path under <code>uploads/</code>; set position
+            and size in mm. Open this page via <strong>npm start</strong> at <code>http://127.0.0.1:3847/designer.html</code> so
+            uploads work — not Live Server or a saved <code>.html</code> file.
+          </p>
+          <div id="imageBlocks"></div>
+          <button type="button" class="secondary" id="addImageBlock">+ Add image</button>
           <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap">
             <button type="button" id="btnSave">Save template</button>
             <button type="button" class="secondary" id="btnPreview">Preview PDF</button>
@@ -102,6 +110,10 @@
           <p class="muted">Uses the same PDF engine as export (mm-accurate).</p>
           <iframe class="preview-frame" id="preview" title="Preview"></iframe>
           <h2 style="margin-top: 1rem">Layout JSON (advanced)</h2>
+          <p class="muted" style="margin: 0 0 0.5rem">
+            Updates live from the form (including <strong>label_size_mm</strong> from width/height above). Edits here need
+            <strong>Apply JSON → form</strong> before other controls stay in sync.
+          </p>
           <textarea id="layoutJson" spellcheck="false" placeholder='{"border":{...},"blocks":[{"type":"line",...}]}'></textarea>
           <button type="button" class="secondary" id="btnApplyJson">Apply JSON → form</button>
         </div>

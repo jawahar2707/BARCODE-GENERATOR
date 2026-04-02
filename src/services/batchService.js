@@ -10,6 +10,28 @@ function parseMeta(str) {
   }
 }
 
+/** Merge optional vendor_code and legacy extra_data_json into one JSON blob for label_items. */
+function buildExtraDataJson(row) {
+  let extra = {};
+  if (row.extra_data_json) {
+    const raw = row.extra_data_json;
+    if (typeof raw === 'string' && raw.trim()) {
+      try {
+        extra = JSON.parse(raw);
+        if (typeof extra !== 'object' || extra === null) extra = {};
+      } catch {
+        extra = {};
+      }
+    } else if (raw && typeof raw === 'object') {
+      extra = { ...raw };
+    }
+  }
+  if (row.vendor_code != null && String(row.vendor_code).trim() !== '') {
+    extra.vendor_code = String(row.vendor_code).trim();
+  }
+  return Object.keys(extra).length ? JSON.stringify(extra) : null;
+}
+
 function createBatch(name, templateId, options = {}) {
   const tid = Number(templateId);
   if (!name || !tid) {
@@ -133,7 +155,7 @@ function addItems(batchId, items) {
         row.color ?? '',
         row.mrp != null ? String(row.mrp) : '',
         qty,
-        row.extra_data_json ? String(row.extra_data_json) : null
+        buildExtraDataJson(row)
       );
     }
   });

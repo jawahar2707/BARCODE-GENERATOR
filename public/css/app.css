@@ -32,7 +32,7 @@ a:hover {
 header.app-header {
   background: var(--card);
   border-bottom: 1px solid var(--border);
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem clamp(0.5rem, 1.5vw, 1.5rem);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -62,9 +62,10 @@ header.app-header nav a.active {
 }
 
 main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 1.25rem;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 1rem clamp(0.5rem, 1.5vw, 1.5rem) 1.5rem;
 }
 
 .card {
@@ -183,12 +184,76 @@ th {
   font-weight: 600;
 }
 
+/* Generate page — wide enough inputs so barcode/SKU are not clipped */
+table.items-editor {
+  table-layout: auto;
+}
+table.items-editor input[type='text'],
+table.items-editor input[type='number'] {
+  width: auto;
+  max-width: none;
+}
+table.items-editor input.v-bc {
+  min-width: 13rem;
+}
+table.items-editor input.v-sk {
+  min-width: 11rem;
+}
+table.items-editor input.v-sz {
+  min-width: 3rem;
+}
+table.items-editor input.v-vendor {
+  min-width: 7rem;
+}
+table.items-editor input.v-qty {
+  min-width: 3.5rem;
+}
+
+.preview-wrap {
+  position: relative;
+  min-height: 320px;
+}
+
+.preview-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-width: 100%;
+}
+.preview-placeholder strong {
+  color: var(--text);
+}
+.preview-placeholder kbd {
+  font: inherit;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+}
+
+/* Label designer + other pages: iframe is visible. Generate page hides iframe until PDF loads (see .preview-wrap). */
 .preview-frame {
   width: 100%;
   min-height: 420px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: #525659;
+  display: block;
+}
+.preview-wrap .preview-frame {
+  display: none;
+}
+.preview-wrap .preview-frame.is-visible {
+  display: block;
 }
 
 .dash-tiles {
@@ -216,4 +281,89 @@ th {
   margin-top: 0.35rem;
   font-weight: 400;
   color: var(--muted);
+}
+
+/* —— Generate page: 50% form / 50% preview —— */
+.generate-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  min-height: calc(100vh - 4rem);
+}
+
+.generate-col--form {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.generate-col--form .card {
+  margin-bottom: 0;
+}
+
+.generate-col--preview {
+  min-width: 0;
+  position: sticky;
+  top: 0.75rem;
+}
+
+body.page-generate .card-preview-side {
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4.25rem);
+  max-height: calc(100vh - 4.25rem);
+}
+
+.preview-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+body.page-generate .preview-wrap--tall {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body.page-generate .preview-wrap--tall .preview-placeholder {
+  flex: 1;
+  min-height: 48vh;
+}
+
+body.page-generate .preview-wrap--tall .preview-frame.is-visible {
+  flex: 1;
+  min-height: 48vh;
+  height: auto;
+}
+
+@media (max-width: 900px) {
+  .generate-split {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+  .generate-col--form {
+    max-height: none;
+    overflow-y: visible;
+  }
+  .generate-col--preview {
+    position: static;
+  }
+  body.page-generate .card-preview-side {
+    height: auto;
+    max-height: none;
+    min-height: 70vh;
+  }
+  body.page-generate .preview-wrap--tall .preview-placeholder,
+  body.page-generate .preview-wrap--tall .preview-frame.is-visible {
+    min-height: 60vh;
+  }
 }

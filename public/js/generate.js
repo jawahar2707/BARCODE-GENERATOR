@@ -2,16 +2,31 @@
 
 let batchId = null;
 
+function vendorFromExtra(item) {
+  if (!item || !item.extra_data_json) return '';
+  try {
+    const ex = JSON.parse(item.extra_data_json);
+    return ex.vendor_code != null ? String(ex.vendor_code) : '';
+  } catch {
+    return '';
+  }
+}
+
 function rowEl(data) {
+  const vend = escapeAttr(data.vendor_code != null ? data.vendor_code : '');
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td><input type="text" class="v-bc" value="${escapeAttr(data.barcode_value || '')}" /></td>
     <td><input type="text" class="v-sk" value="${escapeAttr(data.sku || '')}" /></td>
     <td><input type="text" class="v-sz" value="${escapeAttr(data.size || '')}" /></td>
+    <td><input type="text" class="v-vendor" value="${vend}" placeholder="32026910" style="width:5rem" /></td>
     <td><input type="number" class="v-qty" min="1" max="9999" value="${Number(data.qty) || 1}" style="width:4rem" /></td>
     <td><button type="button" class="secondary rm">×</button></td>
   `;
-  tr.querySelector('.rm').onclick = () => tr.remove();
+  tr.querySelector('.rm').onclick = () => {
+    tr.remove();
+    updatePreviewPanel();
+  };
   return tr;
 }
 
@@ -22,12 +37,43 @@ function escapeAttr(s) {
     .replace(/</g, '&lt;');
 }
 
+/** Show instructions instead of an empty grey PDF viewer when there is nothing to render. */
+function updatePreviewPanel() {
+  const iframe = document.getElementById('pdfPreview');
+  const ph = document.getElementById('previewPlaceholder');
+  if (!iframe || !ph) return;
+
+  if (!batchId) {
+    ph.style.display = 'flex';
+    ph.innerHTML =
+      '<div><strong>No batch yet</strong><br />Use <strong>Create / load batch</strong> above, then add barcodes to the table.</div>';
+    iframe.classList.remove('is-visible');
+    iframe.removeAttribute('src');
+    return;
+  }
+
+  const n = readRows().length;
+  if (n === 0) {
+    ph.style.display = 'flex';
+    ph.innerHTML =
+      '<div><strong>No barcodes in the table</strong><br />' +
+      'Click <kbd>Append lines as items</kbd> or <kbd>Append all combinations</kbd> so <strong>barcode_value</strong> is filled. ' +
+      'Then use <kbd>Refresh preview</kbd>.</div>';
+    iframe.classList.remove('is-visible');
+    iframe.removeAttribute('src');
+  }
+  /* When rows exist, refreshPreview() hides the placeholder and shows the iframe. */
+}
+
 function readRows() {
   const out = [];
+  const defV = (document.getElementById('defaultVendorCode') && document.getElementById('defaultVendorCode').value.trim()) || '';
   document.querySelectorAll('#itemRows tr').forEach((tr) => {
     const barcode_value = tr.querySelector('.v-bc').value.trim();
     if (!barcode_value) return;
-    out.push({
+    const rowVendor = tr.querySelector('.v-vendor').value.trim();
+    const vendor_code = rowVendor || defV;
+    const row = {
       barcode_value,
       sku: tr.querySelector('.v-sk').value.trim(),
       item_name: '',
@@ -35,7 +81,9 @@ function readRows() {
       color: '',
       mrp: '',
       qty: parseInt(tr.querySelector('.v-qty').value, 10) || 1
-    });
+    };
+    if (vendor_code) row.vendor_code = vendor_code;
+    out.push(row);
   });
   return out;
 }
@@ -117,14 +165,16 @@ function setBatchInfo() {
     prev.disabled = true;
     dl.style.display = 'none';
     savePage.disabled = true;
+    updatePreviewPanel();
     return;
   }
-  el.textContent = `Active batch #${batchId} — save items, then preview or download.`;
+  el.textContent = `Active batch #${batchId} — table is synced when you refresh preview or download (Save is optional).`;
   prev.disabled = false;
   savePage.disabled = false;
   dl.href = apiUrl(`/batches/${batchId}/pdf`);
   dl.download = `labels-${batchId}.pdf`;
   dl.style.display = 'inline-block';
+  updatePreviewPanel();
 }
 
 async function createOrLoadBatch() {
@@ -174,6 +224,17 @@ async function savePageMetaOnly() {
   await refreshPreview();
 }
 
+/** Push grid rows to server so PDF export sees them (skips if no barcode rows). */
+async function syncItemsToServerIfAny() {
+  if (!batchId) return;
+  const items = readRows();
+  if (items.length === 0) return;
+  await apiJson(`/batches/${batchId}/items`, {
+    method: 'POST',
+    body: JSON.stringify({ items, replace: true })
+  });
+}
+
 async function saveItems() {
   const gmsg = document.getElementById('gmsg');
   gmsg.textContent = '';
@@ -196,8 +257,28 @@ async function saveItems() {
 }
 
 async function refreshPreview() {
-  if (!batchId) return;
+  if (!batchId) {
+    updatePreviewPanel();
+    return;
+  }
+  const gmsg = document.getElementById('gmsg');
   const iframe = document.getElementById('pdfPreview');
+
+  if (readRows().length === 0) {
+    updatePreviewPanel();
+    return;
+  }
+
+  try {
+    await syncItemsToServerIfAny();
+  } catch (e) {
+    gmsg.className = 'err';
+    gmsg.textContent = 'Could not save items for preview: ' + e.message;
+    return;
+  }
+
+  document.getElementById('previewPlaceholder').style.display = 'none';
+  iframe.classList.add('is-visible');
   iframe.src = apiUrl(`/batches/${batchId}/pdf?inline=1&t=${Date.now()}`);
 }
 
@@ -224,12 +305,36 @@ document.getElementById('btnPreview').onclick = () =>
     document.getElementById('gmsg').textContent = e.message;
   });
 
+document.getElementById('btnDownload').addEventListener('click', async (e) => {
+  if (!batchId) return;
+  e.preventDefault();
+  const gmsg = document.getElementById('gmsg');
+  if (readRows().length === 0) {
+    gmsg.className = 'err';
+    gmsg.textContent = 'Add at least one row with barcode_value before downloading.';
+    updatePreviewPanel();
+    return;
+  }
+  try {
+    await syncItemsToServerIfAny();
+  } catch (err) {
+    gmsg.className = 'err';
+    gmsg.textContent = 'Could not sync items before download: ' + err.message;
+    return;
+  }
+  window.location.assign(apiUrl(`/batches/${batchId}/pdf`));
+});
+
 document.getElementById('btnAddRow').onclick = () => {
-  document.getElementById('itemRows').appendChild(rowEl({}));
+  const defV = document.getElementById('defaultVendorCode').value.trim();
+  document.getElementById('itemRows').appendChild(rowEl(defV ? { vendor_code: defV } : {}));
+  updatePreviewPanel();
 };
 
 document.getElementById('btnClearItems').onclick = () => {
   document.getElementById('itemRows').innerHTML = '';
+  updatePreviewPanel();
+  if (batchId) refreshPreview().catch(() => {});
 };
 
 document.getElementById('btnQuick').onclick = () => {
@@ -239,10 +344,130 @@ document.getElementById('btnQuick').onclick = () => {
     .map((l) => l.trim())
     .filter(Boolean);
   const tbody = document.getElementById('itemRows');
+  const defV = document.getElementById('defaultVendorCode').value.trim();
   lines.forEach((line) => {
-    tbody.appendChild(rowEl({ barcode_value: line, sku: line, qty: 1 }));
+    const r = { barcode_value: line, sku: line, qty: 1 };
+    if (defV) r.vendor_code = defV;
+    tbody.appendChild(rowEl(r));
   });
   document.getElementById('quickLines').value = '';
+  if (batchId) refreshPreview().catch(() => {});
+  else updatePreviewPanel();
+};
+
+/** Apparel-style order for size from–to picker */
+const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '3XL', '4XL', '5XL', '6XL'];
+
+function fillSizeSelects() {
+  const fromSel = document.getElementById('sizeFrom');
+  const toSel = document.getElementById('sizeTo');
+  fromSel.innerHTML = '';
+  toSel.innerHTML = '';
+  SIZE_ORDER.forEach((sz) => {
+    const o1 = document.createElement('option');
+    o1.value = sz;
+    o1.textContent = sz;
+    fromSel.appendChild(o1);
+    const o2 = document.createElement('option');
+    o2.value = sz;
+    o2.textContent = sz;
+    toSel.appendChild(o2);
+  });
+  fromSel.value = 'S';
+  toSel.value = 'XXL';
+}
+
+/**
+ * Expand "PNC 533611" … "PNC 533616" using shared prefix and trailing integer (zero-padded).
+ */
+function expandSkuNumericRange(startStr, endStr) {
+  const re = /^(.*?)(\d+)$/;
+  const m1 = String(startStr || '').trim().match(re);
+  const m2 = String(endStr || '').trim().match(re);
+  if (!m1 || !m2) {
+    throw new Error('Start and end SKU must end with digits (e.g. PNC 533611 and PNC 533616).');
+  }
+  if (m1[1] !== m2[1]) {
+    throw new Error('Start and end SKU must share the same text before the final number.');
+  }
+  const pad = Math.max(m1[2].length, m2[2].length);
+  const a = parseInt(m1[2], 10);
+  const b = parseInt(m2[2], 10);
+  if (Number.isNaN(a) || Number.isNaN(b) || a > b) {
+    throw new Error('Invalid numeric range (start must be ≤ end).');
+  }
+  const prefix = m1[1];
+  const out = [];
+  for (let n = a; n <= b; n++) {
+    out.push(prefix + String(n).padStart(pad, '0'));
+  }
+  return out;
+}
+
+function sizesListForMatrix() {
+  const custom = document.getElementById('customSizes').value.trim();
+  if (custom) {
+    return custom
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  const fromSz = document.getElementById('sizeFrom').value;
+  const toSz = document.getElementById('sizeTo').value;
+  const i = SIZE_ORDER.indexOf(fromSz);
+  const j = SIZE_ORDER.indexOf(toSz);
+  if (i === -1 || j === -1) {
+    throw new Error('Pick sizes from the list or use custom comma-separated sizes.');
+  }
+  if (i > j) throw new Error('Size from must be before size to (or use custom sizes).');
+  return SIZE_ORDER.slice(i, j + 1);
+}
+
+function appendSkuMatrixRows() {
+  const gmsg = document.getElementById('gmsg');
+  gmsg.textContent = '';
+  gmsg.className = '';
+  const startSku = document.getElementById('skuRangeStart').value;
+  const endSku = document.getElementById('skuRangeEnd').value;
+  const bases = expandSkuNumericRange(startSku, endSku);
+  const sizes = sizesListForMatrix();
+  if (sizes.length === 0) {
+    gmsg.className = 'err';
+    gmsg.textContent = 'Add at least one size.';
+    return;
+  }
+  const spacer = /-$|_$|\s$/.test(bases[0]) ? '' : ' ';
+  const defV = document.getElementById('defaultVendorCode').value.trim();
+  const tbody = document.getElementById('itemRows');
+  let n = 0;
+  for (const base of bases) {
+    for (const sz of sizes) {
+      const combined = base + spacer + sz;
+      const r = {
+        barcode_value: combined,
+        sku: combined,
+        size: sz,
+        qty: 1
+      };
+      if (defV) r.vendor_code = defV;
+      tbody.appendChild(rowEl(r));
+      n++;
+    }
+  }
+  gmsg.className = 'ok';
+  gmsg.textContent = `Appended ${n} row(s) (${bases.length} SKUs × ${sizes.length} sizes).`;
+  if (batchId) refreshPreview().catch(() => {});
+  else updatePreviewPanel();
+}
+
+document.getElementById('btnSkuMatrix').onclick = () => {
+  try {
+    appendSkuMatrixRows();
+  } catch (e) {
+    const gmsg = document.getElementById('gmsg');
+    gmsg.className = 'err';
+    gmsg.textContent = e.message || String(e);
+  }
 };
 
 document.getElementById('csvFile').onchange = async (ev) => {
@@ -265,6 +490,8 @@ document.getElementById('csvFile').onchange = async (ev) => {
       gmsg.className = 'ok';
       gmsg.textContent = `Imported ${data.rows.length} rows.`;
     }
+    if (batchId) refreshPreview().catch(() => {});
+    else updatePreviewPanel();
   } catch (e) {
     gmsg.className = 'err';
     gmsg.textContent = e.message;
@@ -280,6 +507,8 @@ function loadFromSession() {
     sessionStorage.removeItem('importedItems');
     const tbody = document.getElementById('itemRows');
     rows.forEach((row) => tbody.appendChild(rowEl(row)));
+    if (batchId) refreshPreview().catch(() => {});
+    else updatePreviewPanel();
   } catch {
     /* ignore */
   }
@@ -329,6 +558,7 @@ async function loadBatchFromQuery() {
         barcode_value: it.barcode_value,
         sku: it.sku,
         size: it.size,
+        vendor_code: vendorFromExtra(it),
         qty: it.qty
       })
     )
@@ -337,12 +567,13 @@ async function loadBatchFromQuery() {
   await refreshPreview();
 }
 
-document.getElementById('itemRows').appendChild(rowEl({}));
+fillSizeSelects();
 
 Promise.all([loadTemplates(), loadPageTemplates()])
   .then(() => loadBatchFromQuery())
   .then(() => loadFromSession())
   .then(() => setBatchInfo())
+  .then(() => updatePreviewPanel())
   .catch((e) => {
     document.getElementById('gmsg').textContent = e.message;
   });

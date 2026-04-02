@@ -51,6 +51,45 @@ const uploadPageBg = multer({
   limits: { fileSize: 30 * 1024 * 1024 }
 });
 
+/** User-supplied PNG/JPEG for label templates (e.g. scissors). Field name: file */
+const uploadLabelAsset = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      cb(null, `label-asset-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+router.post('/upload-asset', (req, res) => {
+  uploadLabelAsset.single('file')(req, res, (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        const msg =
+          err.code === 'LIMIT_FILE_SIZE'
+            ? 'File too large (max 5 MB)'
+            : err.message || String(err.code);
+        return res.status(400).json({ error: msg });
+      }
+      return res.status(500).json({ error: err.message || 'Upload failed' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'file required (field name: file)' });
+    try {
+      const root = path.join(__dirname, '..', '..');
+      const rel = path.relative(root, req.file.path).replace(/\\/g, '/');
+      const filename = path.basename(req.file.path);
+      res.json({
+        path: rel,
+        filename,
+        original_name: req.file.originalname
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'Upload failed' });
+    }
+  });
+});
+
 // ——— Templates ———
 router.get('/templates', (_req, res) => {
   try {
@@ -261,17 +300,32 @@ router.post('/preview-pdf', express.json(), async (req, res) => {
   try {
     const { template_id, template: inline, item } = req.body;
     let t;
-    if (inline && inline.layout && inline.width_mm && inline.height_mm) {
+    const w = Number(inline && inline.width_mm);
+    const h = Number(inline && inline.height_mm);
+    const useInline =
+      inline &&
+      inline.layout &&
+      typeof inline.layout === 'object' &&
+      Number.isFinite(w) &&
+      w > 0 &&
+      Number.isFinite(h) &&
+      h > 0;
+    if (useInline) {
       t = {
-        width_mm: Number(inline.width_mm),
-        height_mm: Number(inline.height_mm),
+        width_mm: w,
+        height_mm: h,
         barcode_type: inline.barcode_type || 'code128',
         layout: inline.layout,
         layout_json: JSON.stringify(inline.layout)
       };
     } else {
       t = templateService.getTemplate(Number(template_id));
-      if (!t) return res.status(404).json({ error: 'Template not found' });
+      if (!t) {
+        return res.status(400).json({
+          error:
+            'Template not found or invalid inline preview. Send template.width_mm, template.height_mm (> 0), and template.layout, or a valid template_id.'
+        });
+      }
     }
     const buf = await buildPreviewPdf(t, item || {});
     res.setHeader('Content-Type', 'application/pdf');
@@ -291,10 +345,10 @@ router.post('/preview-label', express.json(), async (req, res) => {
 
     const layout = t.layout || {};
     const sample = item || {
-      sku: 'SKU-001',
-      barcode_value: 'PNC533611M',
-      item_name: 'Sample',
-      size: 'M',
+      sku: 'PNC 533611 XXXL',
+      barcode_value: 'PNC 533611 XXXL',
+      item_name: 'PNC 533611 XXXL',
+      size: 'XXXL',
       color: 'Black',
       mrp: '999'
     };
